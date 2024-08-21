@@ -60,8 +60,8 @@ def plot_trajectories(trajectory1, trajectory2, fused_trajectory):
     fused_pos = np.array([pose[1] for pose in fused_trajectory])
 
     plt.figure()
-    plt.plot(pos1[:, 0], pos1[:, 1], label='Trajectory 1')
-    plt.plot(pos2[:, 0], pos2[:, 1], label='Trajectory 2')
+    plt.plot(pos1[:, 0], pos1[:, 1], label='trajectory_openvslam')
+    plt.plot(pos2[:, 0], pos2[:, 1], label='trajectory_orb')
     plt.plot(fused_pos[:, 0], fused_pos[:, 1], label='Fused Trajectory', linestyle='--')
     plt.legend()
     plt.xlabel('X position')
@@ -71,8 +71,8 @@ def plot_trajectories(trajectory1, trajectory2, fused_trajectory):
 
 def main():
     # Read the trajectories
-    trajectory1 = read_trajectory('f_MH04_1_m.txt')
-    trajectory2 = read_trajectory('f_V1_02_3_m.txt')
+    trajectory1 = read_trajectory('synchronized_trajectory_openvslam.txt')
+    trajectory2 = read_trajectory('synchronized_trajectory_orb.txt')
 
     # Apply Kalman filter to fuse the trajectories
     fused_trajectory = kalman_filter(trajectory1, trajectory2)
