@@ -13,7 +13,7 @@ def read_trajectory(file_path):
             trajectory.append((timestamp, position))
     return trajectory
 
-def adaptive_kalman_filter(trajectory1, trajectory2):
+def kalman_filter(trajectory1, trajectory2):
     n = min(len(trajectory1), len(trajectory2))  
     fused_trajectory = []
 
@@ -92,7 +92,7 @@ def main():
     trajectory2 = read_trajectory('synchronized_trajectory_orb.txt')
 
     # Apply Kalman filter to fuse the trajectories
-    fused_trajectory = adaptive_kalman_filter(trajectory1, trajectory2)
+    fused_trajectory = kalman_filter(trajectory1, trajectory2)
 
     # Save the fused trajectory
     save_trajectory(fused_trajectory, 'fused_trajectory.txt')
