@@ -6,46 +6,63 @@ def read_trajectory(file_path):
     with open(file_path, 'r') as file:
         for line in file:
             data = line.strip().split()
-            if len(data) < 8:
+            if len(data) < 4:
                 continue  # Skip lines with insufficient data
             timestamp = float(data[0])
             position = np.array([float(data[1]), float(data[2]), float(data[3])])
-            orientation = np.array([float(data[4]), float(data[5]), float(data[6]), float(data[7])])
-            trajectory.append((timestamp, position, orientation))
+            trajectory.append((timestamp, position))
     return trajectory
 
-def kalman_filter(trajectory1, trajectory2):
-    n = min(len(trajectory1), len(trajectory2))  # Use the minimum length to avoid index errors
+def adaptive_kalman_filter(trajectory1, trajectory2):
+    n = min(len(trajectory1), len(trajectory2))  
     fused_trajectory = []
 
     # Initialize state and covariance matrices
     x = np.zeros(3)  # State vector: [tx, ty, tz]
     P = np.eye(3)    # Covariance matrix
 
-    # Process and measurement noise (these should be tuned for your specific problem)
+    # Initialize process noise and measurement noise covariances
     Q = np.eye(3) * 0.1
-    R = np.eye(3) * 0.1
+    R1 = np.eye(3) * 0.1  # Initial measurement noise covariance for trajectory 1
+    R2 = np.eye(3) * 0.1  # Initial measurement noise covariance for trajectory 2
 
     for i in range(n):
         # Time update (prediction)
-        x = x  # Assuming constant velocity model, no change in state
-        P = P + Q  # Increase uncertainty
+        P = P + Q  # Increase uncertainty due to process noise
 
-        # Measurement update (correction)
+        # Measurement update for trajectory 1
         timestamp = trajectory1[i][0]
-        z1 = trajectory1[i][1]
-        z2 = trajectory2[i][1]
-        z = (z1 + z2) / 2  # Combine measurements (you can use a different strategy here)
+        z1 = trajectory1[i][1]  # Measurement from trajectory 1
+        z2 = trajectory2[i][1]  # Measurement from trajectory 2
 
-        y = z - x  # Measurement residual
-        S = P + R  # Residual covariance
-        K = P @ np.linalg.inv(S)  # Kalman gain
+        # Compute Kalman gain for trajectory 1
+        S1 = P + R1  # Residual covariance
+        K1 = P @ np.linalg.inv(S1)  # Kalman gain
+        x1 = x + K1 @ (z1 - x)  # Update state estimate using trajectory 1
+        P1 = (np.eye(3) - K1) @ P  # Update covariance for trajectory 1
 
-        x = x + K @ y  # Update state estimate
-        P = (np.eye(3) - K) @ P  # Update covariance estimate
+        # Compute Kalman gain for trajectory 2
+        S2 = P1 + R2  # Residual covariance
+        K2 = P1 @ np.linalg.inv(S2)  # Kalman gain
+        x = x1 + K2 @ (z2 - x1)  # Further update state estimate using trajectory 2
+        P = (np.eye(3) - K2) @ P1  # Update covariance for trajectory 2
+
+        # Q and R update based on innovation (residual)
+        innovation = z2 - x
+        Q = Q + 0.01 * (np.outer(innovation, innovation) - Q)
+        R2 = R2 + 0.01 * (S2 - R2)
+
+        # Ensure P matrix remains symmetric and non-negative
+        P = 0.5 * (P + P.T)
+        P = np.clip(P, 1e-12, None)  # Ensure no negative values in P
+
+        # Print P, Q, and R matrices to check if they're being updated
+        print(f"Iteration {i + 1}: P matrix\n{P}\n")
+        print(f"Iteration {i + 1}: Q matrix\n{Q}\n")
+        print(f"Iteration {i + 1}: R2 matrix\n{R2}\n")
 
         fused_trajectory.append((timestamp, x.copy()))
-    
+
     return fused_trajectory
 
 def save_trajectory(fused_trajectory, file_path):
@@ -75,7 +92,7 @@ def main():
     trajectory2 = read_trajectory('synchronized_trajectory_orb.txt')
 
     # Apply Kalman filter to fuse the trajectories
-    fused_trajectory = kalman_filter(trajectory1, trajectory2)
+    fused_trajectory = adaptive_kalman_filter(trajectory1, trajectory2)
 
     # Save the fused trajectory
     save_trajectory(fused_trajectory, 'fused_trajectory.txt')
